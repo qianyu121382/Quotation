@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>长方形切割计算器</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+
+    <!-- 配置Tailwind自定义主题 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        accent: '#f97316',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        light: '#f8fafc',
+                        dark: '#1e293b'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                },
+            }
+        }
+    </script>
+
+    <!-- 自定义工具类 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            }
+            .input-focus {
+                @apply focus:ring-2 focus:ring-primary/50 focus:border-primary focus:outline-none;
+            }
+            .btn-hover {
+                @apply hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300;
+            }
+        }
+    </style>
+
+    <style>
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* 动画效果 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        .result-card {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .result-card.show {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        /* 切割图形样式 */
+        .cutting-container {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.5s ease;
+        }
+        .large-rect {
+            position: relative;
+            background-color: #e0f2fe;
+            border: 2px solid #3b82f6;
+            transition: all 0.5s ease;
+            /* 确保居中显示 */
+            margin: 0 auto;
+        }
+        .small-rect {
+            position: absolute;
+            background-color: rgba(249, 115, 22, 0.7);
+            border: 1px solid rgba(217, 70, 239, 0.8);
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+        .small-rect:hover {
+            background-color: rgba(249, 115, 22, 0.9);
+            transform: scale(1.02);
+            z-index: 10;
+        }
+        .remaining-area {
+            position: absolute;
+            background-color: rgba(16, 185, 129, 0.2);
+            border: 1px dashed #10b981;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body class="font-inter bg-gray-50 text-dark min-h-screen flex flex-col">
+<!-- 顶部导航 -->
+<header class="bg-white shadow-md py-4 px-6 sticky top-0 z-50">
+    <div class="container mx-auto flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+            <i class="fa fa-crop text-primary text-2xl"></i>
+            <h1 class="text-xl md:text-2xl font-bold text-primary">长方形切割计算器</h1>
+        </div>
+        <div class="hidden md:flex items-center space-x-4">
+            <span class="text-sm text-secondary"><i class="fa fa-info-circle mr-1"></i> 支持两种切割方案</span>
+            <span class="text-sm text-secondary"><i class="fa fa-eye mr-1"></i> 可视化切割效果</span>
+        </div>
+    </div>
+</header>
+
+<!-- 主要内容 -->
+<main class="flex-grow container mx-auto py-8 px-4 md:px-6">
+    <!-- 输入区域 -->
+    <section class="bg-white rounded-xl p-6 md:p-8 card-shadow mb-8 animate-fade-in">
+        <h2 class="text-xl md:text-2xl font-bold mb-6 text-dark flex items-center">
+            <i class="fa fa-pencil-square-o text-primary mr-2"></i>输入参数
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- 大长方形参数 -->
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-700 flex items-center">
+                    <i class="fa fa-square-o text-primary mr-2"></i>大长方形尺寸
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex flex-col">
+                        <label for="large-width" class="text-sm font-medium text-gray-600 mb-1">长度 (单位: 任意)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"><i class="fa fa-arrows-h"></i></span>
+                            <input type="number" id="large-width" min="0.1" step="0.1" placeholder="输入长度"
+                                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg input-focus">
+                        </div>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="large-height" class="text-sm font-medium text-gray-600 mb-1">宽度 (单位: 任意)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"><i class="fa fa-arrows-v"></i></span>
+                            <input type="number" id="large-height" min="0.1" step="0.1" placeholder="输入宽度"
+                                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg input-focus">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 小长方形参数 -->
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-700 flex items-center">
+                    <i class="fa fa-square text-accent mr-2"></i>小长方形尺寸
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex flex-col">
+                        <label for="small-width" class="text-sm font-medium text-gray-600 mb-1">长度 (单位: 任意)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"><i class="fa fa-arrows-h"></i></span>
+                            <input type="number" id="small-width" min="0.1" step="0.1" placeholder="输入长度"
+                                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg input-focus">
+                        </div>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="small-height" class="text-sm font-medium text-gray-600 mb-1">宽度 (单位: 任意)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"><i class="fa fa-arrows-v"></i></span>
+                            <input type="number" id="small-height" min="0.1" step="0.1" placeholder="输入宽度"
+                                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg input-focus">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 flex justify-center">
+            <button id="calculate-btn" class="bg-primary hover:bg-primary/90 text-white font-medium py-3 px-8 rounded-lg flex items-center btn-hover">
+                <i class="fa fa-calculator mr-2"></i>计算切割方案
+            </button>
+        </div>
+    </section>
+
+    <!-- 结果展示区域 -->
+    <section id="result-section" class="result-card hidden">
+        <div class="bg-white rounded-xl p-6 md:p-8 card-shadow mb-8">
+            <h2 class="text-xl md:text-2xl font-bold mb-6 text-dark flex items-center">
+                <i class="fa fa-bar-chart text-success mr-2"></i>切割结果
+            </h2>
+
+            <!-- 切割方案选择 -->
+            <div class="flex flex-wrap gap-4 mb-8 justify-center">
+                <!-- 方案一 -->
+                <div class="scheme-option bg-gray-100 rounded-lg p-4 flex-1 min-w-[280px] max-w-[350px] transition-all duration-300 hover:bg-gray-50 border-2 border-transparent" data-scheme="1">
+                    <div class="flex items-center mb-2">
+                        <div class="w-4 h-4 rounded-full bg-primary mr-2"></div>
+                        <h3 class="font-semibold text-lg">方案一：小长方形正向放置</h3>
+                    </div>
+                    <p class="text-gray-600 text-sm mb-3">大长方形长 → 小长方形长，大长方形宽 → 小长方形宽</p>
+                    <div class="grid grid-cols-2 gap-3 text-sm mb-3">
+                        <div class="flex items-center">
+                            <span class="text-gray-700 mr-1"><i class="fa fa-arrows-h text-primary"></i>横向：</span>
+                            <span id="cols-1" class="font-bold text-primary">0</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-gray-700 mr-1"><i class="fa fa-arrows-v text-primary"></i>竖向：</span>
+                            <span id="rows-1" class="font-bold text-primary">0</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center text-sm pt-2 border-t border-gray-200">
+                        <span class="text-gray-700"><i class="fa fa-check-circle text-success mr-1"></i>可切割总数：</span>
+                        <span id="count-1" class="font-bold text-primary text-lg">0</span>
+                    </div>
+                </div>
+
+                <!-- 方案二 -->
+                <div class="scheme-option bg-gray-100 rounded-lg p-4 flex-1 min-w-[280px] max-w-[350px] transition-all duration-300 hover:bg-gray-50 border-2 border-transparent" data-scheme="2">
+                    <div class="flex items-center mb-2">
+                        <div class="w-4 h-4 rounded-full bg-accent mr-2"></div>
+                        <h3 class="font-semibold text-lg">方案二：小长方形旋转放置</h3>
+                    </div>
+                    <p class="text-gray-600 text-sm mb-3">大长方形长 → 小长方形宽，大长方形宽 → 小长方形长</p>
+                    <div class="grid grid-cols-2 gap-3 text-sm mb-3">
+                        <div class="flex items-center">
+                            <span class="text-gray-700 mr-1"><i class="fa fa-arrows-h text-accent"></i>横向：</span>
+                            <span id="cols-2" class="font-bold text-accent">0</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-gray-700 mr-1"><i class="fa fa-arrows-v text-accent"></i>竖向：</span>
+                            <span id="rows-2" class="font-bold text-accent">0</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center text-sm pt-2 border-t border-gray-200">
+                        <span class="text-gray-700"><i class="fa fa-check-circle text-success mr-1"></i>可切割总数：</span>
+                        <span id="count-2" class="font-bold text-accent text-lg">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 可视化区域 -->
+            <div class="mt-8">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <i class="fa fa-eye text-secondary mr-2"></i>切割可视化
+                </h3>
+
+                <div class="cutting-container bg-gray-100 rounded-lg p-4 md:p-8 flex justify-center items-center min-h-[400px]">
+                    <div id="visualization" class="large-rect">
+                        <!-- 小长方形和剩余区域将通过JS动态生成 -->
+                        <div class="absolute inset-0 flex items-center justify-center text-gray-500" id="placeholder-text">
+                            <p class="text-center"><i class="fa fa-picture-o text-4xl mb-2 block"></i>选择切割方案查看可视化效果</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 尺寸说明 -->
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <p><span class="font-medium text-gray-700">大长方形实际尺寸：</span> <span id="actual-large-dimensions">-</span></p>
+                        <p><span class="font-medium text-gray-700">小长方形实际尺寸：</span> <span id="actual-small-dimensions">-</span></p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <p><span class="font-medium text-gray-700">剩余区域尺寸：</span> <span id="remaining-dimensions">-</span></p>
+                        <p><span class="font-medium text-gray-700">利用率：</span> <span id="utilization-rate">-</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- 页脚 -->
+<footer class="bg-dark text-white py-6 px-6">
+    <div class="container mx-auto text-center text-sm text-gray-400">
+        <p>© 2025 长方形切割计算器 | 设计与开发</p>
+        <p class="mt-2">
+            <i class="fa fa-info-circle mr-1"></i> 工具说明：所有尺寸单位统一，切割时小长方形方向保持一致
+        </p>
+    </div>
+</footer>
+
+<!-- 主要逻辑脚本 -->
+<script>
+    // 获取DOM元素
+    const calculateBtn = document.getElementById('calculate-btn');
+    const resultSection = document.getElementById('result-section');
+    const schemeOptions = document.querySelectorAll('.scheme-option');
+    const visualization = document.getElementById('visualization');
+    const placeholderText = document.getElementById('placeholder-text');
+
+    // 输入框元素
+    const largeWidthInput = document.getElementById('large-width');
+    const largeHeightInput = document.getElementById('large-height');
+    const smallWidthInput = document.getElementById('small-width');
+    const smallHeightInput = document.getElementById('small-height');
+
+    // 结果显示元素 - 新增横向/竖向数量显示
+    const cols1El = document.getElementById('cols-1');  // 方案一横向
+    const rows1El = document.getElementById('rows-1');  // 方案一竖向
+    const cols2El = document.getElementById('cols-2');  // 方案二横向
+    const rows2El = document.getElementById('rows-2');  // 方案二竖向
+    const count1El = document.getElementById('count-1');
+    const count2El = document.getElementById('count-2');
+    const actualLargeDimensionsEl = document.getElementById('actual-large-dimensions');
+    const actualSmallDimensionsEl = document.getElementById('actual-small-dimensions');
+    const remainingDimensionsEl = document.getElementById('remaining-dimensions');
+    const utilizationRateEl = document.getElementById('utilization-rate');
+
+    // 存储计算结果
+    let calculationResults = {
+        scheme1: { count: 0, rows: 0, cols: 0, remainingWidth: 0, remainingHeight: 0 },
+        scheme2: { count: 0, rows: 0, cols: 0, remainingWidth: 0, remainingHeight: 0 }
+    };
+
+    // 输入验证
+    function validateInputs() {
+        const largeWidth = parseFloat(largeWidthInput.value);
+        const largeHeight = parseFloat(largeHeightInput.value);
+        const smallWidth = parseFloat(smallWidthInput.value);
+        const smallHeight = parseFloat(smallHeightInput.value);
+
+        // 检查是否为空或非数字
+        if (isNaN(largeWidth) || isNaN(largeHeight) || isNaN(smallWidth) || isNaN(smallHeight)) {
+            alert('请输入有效的数字！');
+            return false;
+        }
+
+        // 检查是否为正数
+        if (largeWidth <= 0 || largeHeight <= 0 || smallWidth <= 0 || smallHeight <= 0) {
+            alert('尺寸必须大于0！');
+            return false;
+        }
+
+        // 检查小长方形是否过大
+        if (smallWidth > largeWidth && smallWidth > largeHeight) {
+            alert('小长方形的长度大于大长方形的长宽，无法切割！');
+            return false;
+        }
+
+        if (smallHeight > largeWidth && smallHeight > largeHeight) {
+            alert('小长方形的宽度大于大长方形的长宽，无法切割！');
+            return false;
+        }
+
+        return true;
+    }
+
+    // 计算切割方案
+    function calculateCuttingSchemes() {
+        const Lw = parseFloat(largeWidthInput.value); // 大长方形长
+        const Lh = parseFloat(largeHeightInput.value); // 大长方形宽
+        const Sw = parseFloat(smallWidthInput.value);  // 小长方形长
+        const Sh = parseFloat(smallHeightInput.value);  // 小长方形宽
+
+        // 方案一：小长方形正向放置 (大长→小长，大宽→小宽)
+        const cols1 = Math.floor(Lw / Sw); // 横向数量
+        const rows1 = Math.floor(Lh / Sh); // 纵向数量
+        const count1 = cols1 * rows1;
+        const remainingWidth1 = Lw - cols1 * Sw;
+        const remainingHeight1 = Lh - rows1 * Sh;
+
+        // 方案二：小长方形旋转放置 (大长→小宽，大宽→小长)
+        const cols2 = Math.floor(Lw / Sh); // 横向数量
+        const rows2 = Math.floor(Lh / Sw); // 纵向数量
+        const count2 = cols2 * rows2;
+        const remainingWidth2 = Lw - cols2 * Sh;
+        const remainingHeight2 = Lh - rows2 * Sw;
+
+        // 存储结果
+        calculationResults = {
+            scheme1: {
+                count: count1,
+                rows: rows1,
+                cols: cols1,
+                remainingWidth: remainingWidth1,
+                remainingHeight: remainingHeight1,
+                smallWidth: Sw,
+                smallHeight: Sh
+            },
+            scheme2: {
+                count: count2,
+                rows: rows2,
+                cols: cols2,
+                remainingWidth: remainingWidth2,
+                remainingHeight: remainingHeight2,
+                smallWidth: Sh,
+                smallHeight: Sw
+            }
+        };
+
+        // 更新结果显示 - 新增横向/竖向数量更新
+        cols1El.textContent = cols1;
+        rows1El.textContent = rows1;
+        cols2El.textContent = cols2;
+        rows2El.textContent = rows2;
+        count1El.textContent = count1;
+        count2El.textContent = count2;
+
+        // 显示结果区域
+        resultSection.classList.remove('hidden');
+        setTimeout(() => {
+            resultSection.classList.add('show');
+        }, 10);
+
+        // 默认选中最优方案
+        const bestScheme = count1 >= count2 ? '1' : '2';
+        selectScheme(bestScheme);
+    }
+
+    // 选择切割方案
+    function selectScheme(schemeId) {
+        // 更新选中状态
+        schemeOptions.forEach(option => {
+            if (option.dataset.scheme === schemeId) {
+                option.classList.add('border-primary', 'bg-primary/5');
+                option.classList.remove('border-transparent');
+            } else {
+                option.classList.remove('border-primary', 'bg-primary/5');
+                option.classList.add('border-transparent');
+            }
+        });
+
+        // 清除之前的可视化内容
+        while (visualization.children.length > 1) {
+            visualization.removeChild(visualization.lastChild);
+        }
+        placeholderText.style.display = 'none';
+
+        // 获取选中方案的结果
+        const result = calculationResults[`scheme${schemeId}`];
+        const Lw = parseFloat(largeWidthInput.value);
+        const Lh = parseFloat(largeHeightInput.value);
+
+        // 更新尺寸说明
+        actualLargeDimensionsEl.textContent = `${Lw} × ${Lh}`;
+        actualSmallDimensionsEl.textContent = `${result.smallWidth} × ${result.smallHeight}`;
+        remainingDimensionsEl.textContent = `${result.remainingWidth.toFixed(2)} × ${result.remainingHeight.toFixed(2)}`;
+
+        // 计算利用率
+        const largeArea = Lw * Lh;
+        const smallArea = result.smallWidth * result.smallHeight;
+        const usedArea = result.count * smallArea;
+        const utilizationRate = (usedArea / largeArea * 100).toFixed(2);
+        utilizationRateEl.textContent = `${utilizationRate}%`;
+
+        // 计算可视化比例（固定宽度占满可用空间，高度按比例自适应）
+        const container = document.querySelector('.cutting-container');
+        const availableWidth = container.clientWidth - (window.innerWidth >= 768 ? 32 : 16);
+        const maxAvailableHeight = container.clientHeight - (window.innerWidth >= 768 ? 32 : 16);
+
+        // 缩放比例：以宽度为准，让大长方形宽度尽可能占满可用空间
+        let scale = availableWidth / Lw;
+        // 限制高度不超过最大可用高度（防止溢出）
+        const scaledHeight = Lh * scale;
+        if (scaledHeight > maxAvailableHeight) {
+            scale = maxAvailableHeight / Lh;
+        }
+
+        // 确保缩放比例不小于0.1（防止过小）
+        scale = Math.max(scale, 0.1);
+
+        // 设置大长方形尺寸（保持原始长宽比例）
+        const displayWidth = Lw * scale;
+        const displayHeight = Lh * scale;
+        visualization.style.width = `${displayWidth}px`;
+        visualization.style.height = `${displayHeight}px`;
+
+        // 绘制小长方形
+        for (let i = 0; i < result.rows; i++) {
+            for (let j = 0; j < result.cols; j++) {
+                const smallRect = document.createElement('div');
+                smallRect.classList.add('small-rect');
+
+                // 计算位置和尺寸（按相同比例缩放）
+                const x = j * result.smallWidth * scale;
+                const y = i * result.smallHeight * scale;
+                const width = result.smallWidth * scale;
+                const height = result.smallHeight * scale;
+
+                // 设置样式
+                smallRect.style.left = `${x}px`;
+                smallRect.style.top = `${y}px`;
+                smallRect.style.width = `${width}px`;
+                smallRect.style.height = `${height}px`;
+
+                // 添加编号
+                const number = document.createElement('div');
+                number.classList.add('absolute', 'bottom-1', 'right-1', 'text-xs', 'text-white', 'font-bold');
+                number.textContent = i * result.cols + j + 1;
+                smallRect.appendChild(number);
+
+                visualization.appendChild(smallRect);
+            }
+        }
+
+        // 绘制剩余区域
+        // 右侧剩余区域
+        if (result.remainingWidth > 0.01) {
+            const rightRemaining = document.createElement('div');
+            rightRemaining.classList.add('remaining-area');
+            rightRemaining.style.left = `${(Lw - result.remainingWidth) * scale}px`;
+            rightRemaining.style.top = '0';
+            rightRemaining.style.width = `${result.remainingWidth * scale}px`;
+            rightRemaining.style.height = `${displayHeight}px`;
+
+            // 添加说明文字
+            const rightText = document.createElement('div');
+            rightText.classList.add('absolute', 'inset-0', 'flex', 'items-center', 'justify-center', 'text-xs', 'text-success', 'font-medium');
+            rightText.textContent = `剩余宽度: ${result.remainingWidth.toFixed(2)}`;
+            rightRemaining.appendChild(rightText);
+
+            visualization.appendChild(rightRemaining);
+        }
+
+        // 底部剩余区域
+        if (result.remainingHeight > 0.01) {
+            const bottomRemaining = document.createElement('div');
+            bottomRemaining.classList.add('remaining-area');
+            bottomRemaining.style.left = '0';
+            bottomRemaining.style.top = `${(Lh - result.remainingHeight) * scale}px`;
+            bottomRemaining.style.width = `${(Lw - result.remainingWidth) * scale}px`;
+            bottomRemaining.style.height = `${result.remainingHeight * scale}px`;
+
+            // 添加说明文字
+            const bottomText = document.createElement('div');
+            bottomText.classList.add('absolute', 'inset-0', 'flex', 'items-center', 'justify-center', 'text-xs', 'text-success', 'font-medium');
+            bottomText.textContent = `剩余高度: ${result.remainingHeight.toFixed(2)}`;
+            bottomRemaining.appendChild(bottomText);
+
+            visualization.appendChild(bottomRemaining);
+        }
+    }
+
+    // 事件监听
+    calculateBtn.addEventListener('click', () => {
+        if (validateInputs()) {
+            calculateCuttingSchemes();
+        }
+    });
+
+    // 方案选择点击事件
+    schemeOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            selectScheme(option.dataset.scheme);
+        });
+    });
+
+    // 键盘回车事件
+    [largeWidthInput, largeHeightInput, smallWidthInput, smallHeightInput].forEach(input => {
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                if (validateInputs()) {
+                    calculateCuttingSchemes();
+                }
+            }
+        });
+    });
+
+    // 窗口大小变化时重新绘制
+    window.addEventListener('resize', () => {
+        if (!resultSection.classList.contains('hidden')) {
+            const activeScheme = document.querySelector('.scheme-option.border-primary').dataset.scheme;
+            selectScheme(activeScheme);
+        }
+    });
+</script>
+</body>
+</html>
